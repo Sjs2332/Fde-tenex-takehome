@@ -1,0 +1,24 @@
+import Link from "next/link";
+
+export function Footer() {
+    return (
+        <footer className="w-full border-t bg-muted/30 py-12">
+            <div className="flex flex-col items-center justify-center gap-4 w-full px-4">
+                <p className="text-sm text-muted-foreground text-center">
+                    &copy; {new Date().getFullYear()} All rights reserved.
+                </p>
+
+                <div className="flex items-center justify-center gap-6">
+                    <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">
+                        <span className="sr-only">Twitter</span>
+                        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" /></svg>
+                    </Link>
+                    <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">
+                        <span className="sr-only">GitHub</span>
+                        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .3C5.4.3 0 5.7 0 12.3c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.2 1.9 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.3-3.2-.1-.3-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2 1-.3 2-.4 3-.4s2 .1 3 .4c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.9.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.7-2.8 5.6-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6C20.6 22.1 24 17.6 24 12.3 24 5.7 18.6.3 12.3.3z" /></svg>
+                    </Link>
+                </div>
+            </div>
+        </footer>
+    );
+}
