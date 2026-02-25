@@ -11,6 +11,7 @@ Name: Tenex Intelligence
 Type: AI-powered calendar management assistant
 Stack: Next.js 16.1.6 (App Router), React 19, TypeScript 5, Vercel AI SDK v6,
        Firebase Auth + Firestore, Google Calendar API, Gmail API, Tailwind CSS 4
+Testing: Vitest, React Testing Library, jsdom
 LLM: OpenAI GPT-4o-mini via @ai-sdk/openai
 
 The app is a single-page dashboard with:
@@ -35,8 +36,9 @@ src/
 │   │       - Imports tools from lib/ai/tools.ts
 │   │       - Imports prompt from lib/ai/system-prompt.ts
 │   │       - Streams response via AI SDK streamText()
+│   │       - Rate Limiting: 30 requests/min sliding window per IP
 │   │       - Input validation: messages array required
-│   │       - Typed JSON error responses (400, 500)
+│   │       - Typed JSON error responses (400, 429, 500)
 │   ├── app/
 │   │   ├── layout.tsx                     # Wraps children in CalendarProvider > SidebarProvider
 │   │   │   - Auth guard: redirects to / if not logged in
@@ -184,6 +186,8 @@ src/
 │   │           - createEvent(): POST to proxy with conferenceDataVersion=1
 │   ├── firebase.ts                      # Firebase app init (getApps guard)
 │   │   - Exports: app, auth, db (Firestore)
+│   ├── rate-limit.ts                    # In-memory sliding-window rate limiter
+│   │   - Tracks timestamps per IP, clears stale entries, generates HTTP 429s
 │   ├── calendar-utils.ts               # Shared date utility functions
 │   │   - EventStatus type: done | in-progress | soon | upcoming
 │   │   - EVENT_COLORS: array of Tailwind class names
@@ -221,6 +225,12 @@ Firestore Rules:
 - All data scoped to users/{userId}
 - request.auth.uid == userId required for all operations
 - Default deny on all unmatched paths
+
+Rate Limiting:
+- Implemented in src/lib/rate-limit.ts
+- Protects /api/chat route (OpenAI endpoint)
+- Configured to 30 requests per minute per IP address
+- Returns 429 "Too Many Requests" Response with proper Retry-After headers
 
 ================================================================================
 AI AGENT BEHAVIOR

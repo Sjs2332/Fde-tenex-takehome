@@ -1,5 +1,6 @@
 import { openai } from "@ai-sdk/openai";
 import { streamText, convertToModelMessages, stepCountIs } from "ai";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { createCalendarTools } from "@/lib/ai/tools";
 import { getServerToken } from "@/lib/auth/token-manager";
@@ -8,6 +9,17 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
     try {
+        // ── Rate limiting (protects OpenAI API from abuse) ────────────────────
+        const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
+        const { allowed, resetInSeconds } = checkRateLimit(ip, {
+            maxRequests: 30,
+            windowSeconds: 60,
+        });
+
+        if (!allowed) {
+            return rateLimitResponse(resetInSeconds);
+        }
+
         // ── Validate environment ───────────────────────────────────────────────
         if (!process.env.OPENAI_API_KEY) {
             return new Response(

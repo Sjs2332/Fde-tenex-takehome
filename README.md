@@ -4,6 +4,8 @@ An AI-powered Chief of Staff that manages your Google Calendar through natural l
 
 **[Live Demo](https://fde-tenex-takehome.vercel.app)** · **[Source Code](https://github.com/Sjs2332/Fde-tenex-takehome)**
 
+![Platform Screenshot](./screenshot-of-platform.png)
+
 ---
 
 ## Features
@@ -32,6 +34,7 @@ An AI-powered Chief of Staff that manages your Google Calendar through natural l
 | Styling | Tailwind CSS 4, shadcn/ui |
 | APIs | Google Calendar API, Gmail API |
 | Language | TypeScript 5, React 19 |
+| Testing | Vitest, React Testing Library, jsdom |
 
 ## Architecture
 
@@ -81,6 +84,16 @@ src/
     └── google/calendar.ts             # GoogleCalendarEvent interface
 ```
 
+## Testing
+
+The project includes an automated test suite verifying core business logic to ensure production reliability without requiring external API access or Firebase emulation.
+
+```bash
+npm run test
+```
+
+See [`TESTING.md`](./TESTING.md) for full coverage details.
+
 ## Security
 
 | Protection | Implementation |
@@ -95,6 +108,7 @@ src/
 | **API Retry Logic** | Google API calls retry up to 2× with exponential backoff (500ms, 1500ms) on 5xx/429 |
 | **Firestore Security Rules** | User-scoped: `request.auth.uid == userId` on all paths; deny-all default |
 | **Input Validation** | Request body validation in all API routes; typed JSON error responses (400, 401, 500) |
+| **Rate Limiting** | In-memory sliding-window rate limiter protecting OpenAI API endpoint (30 req/min/IP) |
 | **Permissions Policy** | Camera, microphone, geolocation disabled |
 | **Referrer Policy** | strict-origin-when-cross-origin |
 
