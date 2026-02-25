@@ -122,6 +122,8 @@ export function ChatInterface() {
 
     // ─── Persist conversation to Firestore ──────────────────────────────────
     const lastPersistedHashRef = useRef<string>("");
+    const refreshHistoryRef = useRef(refreshHistory);
+    refreshHistoryRef.current = refreshHistory;
 
     useEffect(() => {
         if (isStreaming || !user?.uid || messages.length < 2) return;
@@ -136,25 +138,21 @@ export function ChatInterface() {
             content: msg.parts
                 ?.filter((p: any) => p.type === "text")
                 .map((p: any) => p.text)
-                .join("") || msg.content || "", // Fallback to raw content if no parts
+                .join("") || msg.content || "",
         }));
 
         const hash = JSON.stringify(serialized.map(s => ({ id: s.id, content: s.content })));
         if (hash === lastPersistedHashRef.current) return;
         lastPersistedHashRef.current = hash;
 
-        // Use the first user message as the title
         const title = serialized.find((m: any) => m.role === "user")?.content?.slice(0, 60) || "Chat";
 
         ConversationService.saveConversation(
             user.uid, activeConversationId, title, serialized
         )
-            .then(() => {
-                // Refresh the sidebar history so the user sees their new chat name immediately
-                refreshHistory();
-            })
+            .then(() => refreshHistoryRef.current())
             .catch((err) => console.error("Failed to persist conversation:", err));
-    }, [isStreaming, messages, user?.uid, activeConversationId, refreshHistory]);
+    }, [isStreaming, messages, user?.uid, activeConversationId]);
 
     // ─── Log agent actions to Firestore ──────────────────────────────────────
     useEffect(() => {

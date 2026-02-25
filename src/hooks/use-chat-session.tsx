@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
 import { ConversationService, Conversation } from "@/lib/services/firebase/conversations";
 import { useAuth } from "@/components/providers/AuthProvider";
 
@@ -21,40 +21,39 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
 
-    const [hasLoadedInitial, setHasLoadedInitial] = useState(false);
+    const hasLoadedInitialRef = useRef(false);
 
-    const refreshHistory = async () => {
+    const refreshHistory = useCallback(async () => {
         if (!user) return;
         setLoadingHistory(true);
         try {
             const history = await ConversationService.getConversations(user.uid);
             setConversations(history);
 
-            if (!hasLoadedInitial && history.length > 0) {
-                // Auto-load most recent conversation on page load
+            if (!hasLoadedInitialRef.current && history.length > 0) {
                 setActiveConversationId(history[0].id);
-                setHasLoadedInitial(true);
-            } else if (!hasLoadedInitial) {
-                setHasLoadedInitial(true);
+                hasLoadedInitialRef.current = true;
+            } else if (!hasLoadedInitialRef.current) {
+                hasLoadedInitialRef.current = true;
             }
         } catch (error) {
             console.error("Failed to load conversation history:", error);
         } finally {
             setLoadingHistory(false);
         }
-    };
+    }, [user]);
 
     useEffect(() => {
         if (user) refreshHistory();
-    }, [user]);
+    }, [user, refreshHistory]);
 
-    const startNewChat = () => {
+    const startNewChat = useCallback(() => {
         setActiveConversationId(`conv-${Date.now()}`);
-    };
+    }, []);
 
-    const loadConversation = (id: string) => {
+    const loadConversation = useCallback((id: string) => {
         setActiveConversationId(id);
-    };
+    }, []);
 
     return (
         <ChatSessionContext.Provider value={{

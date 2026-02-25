@@ -38,15 +38,16 @@ Stores chat history per conversation thread.
 ```
 conversations/
   {conversationId}/
-    ├── title: string                          // Auto-generated from first message
-    ├── createdAt: Timestamp
-    ├── updatedAt: Timestamp
+    ├── title: string                          // Auto-generated from first user message
+    ├── createdAt: Timestamp                   // Set ONLY on first save, never overwritten
+    ├── updatedAt: Timestamp                   // Updated on every save
     ├── messageCount: number
-    └── messages/                              // Subcollection
-        {messageId}/
-          ├── role: "user" | "assistant"
-          ├── content: string                  // Raw text content
-          └── createdAt: Timestamp
+    └── messages: Array<{                      // Embedded array (NOT a subcollection)
+          id: string
+          role: "user" | "assistant"
+          content: string
+          createdAt: Date
+        }>                                     // Max 50 messages, ~1 write per save
 ```
 
 ### `users/{userId}/activity/{activityId}`
@@ -141,9 +142,14 @@ Required composite indexes for common queries:
 
 - **No sensitive tokens in Firestore**: Google access tokens are stored in
   HttpOnly cookies (server-side) and NEVER written to Firestore.
-- **Subcollections over arrays**: Messages are a subcollection (not an array)
-  to avoid the 1MB document limit and enable pagination.
+- **Messages are embedded arrays**: Messages are stored as an array field
+  on the conversation document (not a subcollection). This means each
+  `saveConversation` call is exactly **1 Firestore write**, regardless
+  of how many messages exist. Capped at 50 messages to stay well within
+  the 1MB document limit.
 - **Activity log is append-only**: Actions are never updated or deleted.
   This creates a reliable audit trail.
 - **Week ID format**: `YYYY-Www` (ISO 8601 week numbering) makes range queries
   simple and human-readable.
+- **createdAt preservation**: Conversation `createdAt` is set only on first
+  save. Subsequent saves only update `updatedAt`.

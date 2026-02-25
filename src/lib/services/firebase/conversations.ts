@@ -55,15 +55,24 @@ export const ConversationService = {
             role: msg.role,
             content: msg.content,
             createdAt: msg.createdAt || new Date(),
-        })).slice(-50); // Keep max 50 to fit easily into 1MB limits
+        })).slice(-50);
 
-        await setDoc(convRef, {
+        // Check if conversation already exists to avoid overwriting createdAt
+        const existing = await getDoc(convRef);
+
+        const docData: Record<string, unknown> = {
             title,
             updatedAt: serverTimestamp(),
-            createdAt: serverTimestamp(),
             messageCount: messages.length,
             messages: serializedMessages,
-        }, { merge: true });
+        };
+
+        // Only set createdAt on first save
+        if (!existing.exists()) {
+            docData.createdAt = serverTimestamp();
+        }
+
+        await setDoc(convRef, docData, { merge: true });
     },
 
     /**
