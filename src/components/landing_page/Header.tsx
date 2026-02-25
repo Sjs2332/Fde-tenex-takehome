@@ -29,8 +29,10 @@ export function Header() {
 
                     {/* CTA Section (Right Aligned) */}
                     <div className="flex items-center justify-end">
-                        <Button size="sm" className="rounded-full px-6 font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]">
-                            View Source
+                        <Button asChild size="sm" className="rounded-full px-6 font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]">
+                            <a href="https://github.com/Sjs2332/Fde-tenex-takehome" target="_blank" rel="noopener noreferrer">
+                                View Source
+                            </a>
                         </Button>
                     </div>
                 </div>

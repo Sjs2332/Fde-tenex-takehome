@@ -1,5 +1,5 @@
 # llm.txt — Tenex Intelligence Full Codebase Reference
-# Generated: 2026-02-24T20:24:00-05:00
+# Generated: 2026-02-24T23:05:00-05:00
 # This file provides a complete, machine-readable reference of the entire
 # Tenex Intelligence codebase for LLM consumption.
 
@@ -27,7 +27,7 @@ FILE TREE (61 source files)
 src/
 ├── app/
 │   ├── api/
-│   │   ├── auth/session/route.ts        # GET/POST/DELETE HttpOnly cookie
+│   │   ├── auth/session/route.ts        # POST/DELETE HttpOnly cookie
 │   │   ├── calendar/route.ts            # GET/POST proxy for Calendar API (hides token)
 │   │   ├── gmail/send/route.ts          # POST proxy for Gmail API (hides token)
 │   │   └── chat/route.ts                  # Main AI agent endpoint
@@ -36,7 +36,7 @@ src/
 │   │       - Imports prompt from lib/ai/system-prompt.ts
 │   │       - Streams response via AI SDK streamText()
 │   │       - Input validation: messages array required
-│   │       - Typed JSON error responses (400, 429, 500)
+│   │       - Typed JSON error responses (400, 500)
 │   ├── app/
 │   │   ├── layout.tsx                     # Wraps children in CalendarProvider > SidebarProvider
 │   │   │   - Auth guard: redirects to / if not logged in
@@ -194,7 +194,6 @@ src/
 └── types/
     └── google/calendar.ts              # TypeScript interfaces
         - GoogleCalendarEvent: id, summary, start, end, attendees, conferenceData
-        - CalendarFetchResponse: items array + nextPageToken
 
 ================================================================================
 SECURITY CONFIGURATION
