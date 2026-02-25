@@ -2,7 +2,7 @@
 
 An AI-powered Chief of Staff that manages your Google Calendar through natural language. Real-time scheduling, conflict detection, email drafting, and meeting analytics — all from a single chat interface.
 
-**[Live Demo](https://fde-tenex-takehome.vercel.app)** · **[Source Code](https://github.com/Sjs2332/Fde-tenex-takehome)**
+**[Live Demo](https://fde-tenex-takehome.vercel.app/)** · **[Source Code](https://github.com/Sjs2332/Fde-tenex-takehome)**
 
 ![Platform Screenshot](./screenshot-of-platform.png)
 
