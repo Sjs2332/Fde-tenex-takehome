@@ -1,0 +1,348 @@
+# llm.txt — Tenex Intelligence Full Codebase Reference
+# Generated: 2026-02-24T20:24:00-05:00
+# This file provides a complete, machine-readable reference of the entire
+# Tenex Intelligence codebase for LLM consumption.
+
+================================================================================
+PROJECT OVERVIEW
+================================================================================
+
+Name: Tenex Intelligence
+Type: AI-powered calendar management assistant
+Stack: Next.js 16.1.6 (App Router), React 19, TypeScript 5, Vercel AI SDK v6,
+       Firebase Auth + Firestore, Google Calendar API, Gmail API, Tailwind CSS 4
+LLM: OpenAI GPT-4o-mini via @ai-sdk/openai
+
+The app is a single-page dashboard with:
+- Left sidebar: navigation + user menu (logout only)
+- Center: AI chat interface with markdown rendering, tool status indicators,
+  interactive widgets (stats, schedule, email drafts), and quick action chips
+- Right sidebar: mini calendar, event timeline, "Schedule New" button, help popup
+- Header: breadcrumb + event search bar with dropdown
+
+================================================================================
+FILE TREE (58 source files)
+================================================================================
+
+src/
+├── app/
+│   ├── api/
+│   │   ├── auth/session/route.ts          # POST: store token in HttpOnly cookie
+│   │   │                                  # DELETE: clear token cookie on logout
+│   │   └── chat/route.ts                  # POST: AI chat endpoint
+│   │       - Rate limited (30 req/min/IP)
+│   │       - Reads token from HttpOnly cookie (primary) or Auth header (fallback)
+│   │       - Imports tools from lib/ai/tools.ts
+│   │       - Imports prompt from lib/ai/system-prompt.ts
+│   │       - Streams response via AI SDK streamText()
+│   │       - Input validation: messages array required
+│   │       - Typed JSON error responses (400, 429, 500)
+│   ├── app/
+│   │   ├── layout.tsx                     # Wraps children in CalendarProvider > SidebarProvider
+│   │   │   - Auth guard: redirects to / if not logged in
+│   │   │   - Loading state with pulse animation
+│   │   └── page.tsx                       # Renders ChatInterface full-screen
+│   ├── layout.tsx                         # Root: Geist fonts, AuthProvider, TooltipProvider
+│   ├── page.tsx                           # Landing page: Header + Hero + Footer
+│   └── globals.css                        # Tailwind base + theme tokens (HSL variables)
+├── components/
+│   ├── app/chat/
+│   │   ├── ChatInterface.tsx              # Main chat UI (356 lines)
+│   │   │   - useChat() from @ai-sdk/react with DefaultChatTransport
+│   │   │   - Sends Google token via Authorization header to /api/chat
+│   │   │   - Auto-scrolls, auto-resizes textarea
+│   │   │   - Detects tool-create_event / tool-delete_event completion → refetch()
+│   │   │   - Persists conversations to Firestore via ConversationService
+│   │   │   - Logs agent actions to Firestore via ActivityService
+│   │   │   - Uses loggedToolCallsRef Set to prevent duplicate logging
+│   │   │   - Quick actions: opens ReschedulePickerModal for "Reschedule sync",
+│   │   │     sets input for others
+│   │   │   - Citation clicks open EventDetailModal
+│   │   ├── MessageRenderer.tsx            # Renders a single assistant message
+│   │   │   - getToolInfo() helper: extracts tool name/state/output from both
+│   │   │     AI SDK v6 format (tool-{name}) and legacy (tool-invocation)
+│   │   │   - Renders ToolStatus pills for in-progress/done tools
+│   │   │   - Renders EventCreatedCard for completed create_event
+│   │   │   - Detects [WIDGET: STATS], [WIDGET: SCHEDULE], [WIDGET: EMAIL] markers
+│   │   │   - ReactMarkdown with remark-gfm for tables/lists
+│   │   │   - renderCitations() recursively walks React children, converts
+│   │   │     [[Event Name]] into clickable buttons
+│   │   ├── ToolStatus.tsx                 # Loading spinner / success checkmark pill
+│   │   │   - Labels: get_events, create_event, delete_event
+│   │   │   - States: input-streaming, input-available, call, partial-call (loading)
+│   │   │             output-available, result (done), output-error (error)
+│   │   ├── EventCreatedCard.tsx           # Confirmation card after event creation
+│   │   │   - Shows title, date, time, duration, Google Meet link
+│   │   ├── EmailDraftCard.tsx             # Editable email draft with Gmail send
+│   │   │   - Edit mode: editable To, Subject, Body fields
+│   │   │   - Copy to clipboard
+│   │   │   - Send via Gmail API (RFC 2822 → base64url encoding)
+│   │   │   - Logs email_sent to ActivityService on successful send
+│   │   ├── ReschedulePickerModal.tsx      # Meeting picker popup
+│   │   │   - Shows next 10 upcoming events with color-coded borders
+│   │   │   - Clicking one triggers reschedule prompt in chat
+│   │   ├── StatsGrid.tsx                  # Weekly stats dashboard widget
+│   │   │   - Computes: total meetings, total hours, avg duration, focus time
+│   │   │   - Uses events from CalendarProvider
+│   │   ├── ScheduleCard.tsx               # Schedule timeline widget
+│   │   │   - Lists events chronologically with status indicators
+│   │   │   - done/in-progress/soon/upcoming badges
+│   │   └── quick-actions.ts              # Quick action chip definitions
+    │       - "Draft email" → asks the AI to prompt the user for recipient + topic
+    │       - "Reschedule sync" → opens ReschedulePickerModal (no prompt)
+    │       - "Summarize week" → neutral prompt (AI auto-appends STATS widget)
+    │       - "Audit meetings" → neutral prompt (AI auto-appends SCHEDULE widget)
+│   ├── app/navigation/
+│   │   ├── LeftSidebar.tsx               # Left nav: Tenex logo, "AI Assistant" link,
+│   │   │                                 # user avatar footer with dropdown (email + logout)
+│   │   ├── RightSidebar.tsx              # Right panel: help popup, mini calendar,
+│   │   │                                 # schedule panel, "Schedule New" button
+│   │   ├── DashboardHeader.tsx           # Header: breadcrumb + search bar
+│   │   │   - Search bar: on focus shows upcoming events dropdown
+│   │   │   - Typing filters events by name
+│   │   │   - Click outside closes dropdown
+│   │   ├── SchedulePanel.tsx             # Event list for right sidebar
+│   │   │   - Filters by selected date or shows all
+│   │   │   - Loading skeleton, empty state
+│   │   ├── EventCard.tsx                 # Single event card in sidebar
+│   │   │   - Color-coded left border, time, duration, attendee avatars
+│   │   │   - Status badge (done/in-progress/soon/upcoming)
+│   │   ├── EventDetailModal.tsx          # Full event detail overlay
+│   │   │   - Shows attendees, location, video call link, description
+│   │   └── CreateEventModal.tsx          # Manual event creation form
+│   │       - Title, date, start/end time, all-day toggle
+│   │       - Creates via CalendarService.createEvent()
+│   ├── landing_page/
+│   │   ├── Header.tsx                    # Landing nav: logo + "Sign in with Google"
+│   │   ├── Hero.tsx                      # Hero section with CTA
+│   │   └── Footer.tsx                    # Copyright footer
+│   ├── providers/
+│   │   └── AuthProvider.tsx              # React context for Firebase Auth
+    │       - onAuthStateChanged listener
+    │       - On login: calls UserService.upsertOnLogin() to persist profile
+    │       - loginWithGoogle() → delegates to AuthService
+    │       - logout() → delegates to AuthService
+    │       - Provides: user, loading, loginWithGoogle, logout
+│   └── ui/                              # 17 shadcn/ui components
+│       avatar, badge, breadcrumb, button, calendar, card, dialog,
+│       dropdown-menu, input, label, separator, sheet, sidebar,
+│       skeleton, switch, textarea, tooltip
+├── hooks/
+│   ├── use-calendar.tsx                  # CalendarProvider context
+│   │   - Single source of truth for calendar events
+│   │   - Fetches via CalendarService.getUpcomingEvents()
+│   │   - Provides: events, loading, error, refetch
+│   │   - Both ChatInterface and RightSidebar share the same instance
+│   └── use-mobile.ts                    # useIsMobile() hook (used by sidebar.tsx)
+├── lib/
+│   ├── ai/
+│   │   ├── tools.ts                     # createCalendarTools(token) factory
+│   │   │   - get_events: fetches events with IDs for time range
+│   │   │   - create_event: creates with Google Meet link + attendees
+│   │   │   - delete_event: deletes by event ID
+│   │   │   - assertToken() guard: throws if no token
+│   │   │   - googleApiFetch() helper: centralized fetch with error handling
+│   │   └── system-prompt.ts             # buildSystemPrompt(timeString)
+│   │       - Temporal anchor with current date/time
+│   │       - Tool usage protocol with conflict check mandate
+│   │       - Rescheduling protocol: delete old + create new
+│   │       - Widget triggers: invisible auto-appended markers
+    │         (STATS, SCHEDULE, EMAIL — AI places at end, UI strips from text)
+│   │       - Scheduling intelligence: buffers, work hours, batch checking
+│   │       - Analytics engine: meeting hours, busiest day, "meetings as emails"
+│   ├── auth/
+│   │   └── token-manager.ts             # Server-side HttpOnly cookie manager
+│   │       - Cookie: "gat", httpOnly, secure in prod, sameSite: lax, maxAge: 3600
+│   │       - getServerToken(), setServerToken(), clearServerToken()
+│   ├── services/
+│   │   ├── firebase/
+│   │   │   ├── auth.ts                  # AuthService
+│   │   │   │   - loginWithGoogle(): OAuth popup → store token in cookie + localStorage
+│   │   │   │   - logout(): clear cookie + localStorage + Firebase signOut
+│   │   │   ├── conversations.ts         # ConversationService
+│   │   │   │   - saveConversation(): upserts conversation + message subcollection
+│   │   │   │   - getConversations(): latest 20 by updatedAt DESC
+│   │   │   │   - deleteConversation(): deletes messages subcollection + document
+│   │   │   └── activity.ts             # ActivityService
+│   │   │       - log(userId, type, summary, metadata): append-only activity log
+│   │   │       - getRecent(userId, count): latest N activities
+│   │   │       - getByType(userId, type, count): filter by action type
+│   │   │       - Types: calendar_fetch, event_created, event_deleted,
+    │   │                event_rescheduled, email_sent, email_drafted
+    │   │   └── users.ts                # UserService
+    │   │       - upsertOnLogin(user): saves displayName, email, photoURL,
+    │   │         createdAt (first login only), lastLoginAt (every login),
+    │   │         lastLoginAt (every login)
+│   │   └── google/
+│   │       ├── google-client.ts         # googleFetch<T>() with token from localStorage
+│   │       │   - Used by client-side components (EmailDraftCard, CalendarService)
+│   │       └── calendar.ts             # CalendarService
+│   │           - getUpcomingEvents(): past 30 days → future 30 days
+│   │           - createEvent(): POST with conferenceDataVersion=1
+│   ├── firebase.ts                      # Firebase app init (getApps guard)
+│   │   - Exports: app, auth, db (Firestore)
+│   ├── rate-limit.ts                    # In-memory sliding-window rate limiter
+│   │   - checkRateLimit(identifier, config) → { allowed, remaining, resetInSeconds }
+│   │   - rateLimitResponse(resetInSeconds) → 429 Response with headers
+│   │   - Auto-cleanup interval (60s) prevents memory leaks
+│   ├── calendar-utils.ts               # Shared date utility functions
+│   │   - EventStatus type: done | in-progress | soon | upcoming
+│   │   - EVENT_COLORS: array of Tailwind class names
+│   │   - getInitials(email): "john.doe@gmail.com" → "JD"
+│   │   - getEventStatus(event): temporal classification
+│   │   - getTimeUntilLabel(event): "in 23 min", "in 4 hr", "in 2 days"
+│   └── utils.ts                        # cn() — clsx + tailwind-merge
+└── types/
+    └── google/calendar.ts              # TypeScript interfaces
+        - GoogleCalendarEvent: id, summary, start, end, attendees, conferenceData
+        - CalendarFetchResponse: items array + nextPageToken
+
+================================================================================
+SECURITY CONFIGURATION
+================================================================================
+
+File: next.config.ts
+- Content-Security-Policy: whitelisted origins for scripts, styles, fonts,
+  images, API connections (Google, Firebase, Gmail)
+- X-Content-Type-Options: nosniff
+- X-Frame-Options: SAMEORIGIN
+- X-XSS-Protection: 1; mode=block
+- Referrer-Policy: strict-origin-when-cross-origin
+- Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+- Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+- frame-ancestors: self
+- frame-src: Firebase auth popup + Google accounts
+
+Token Security:
+- Google access tokens stored in HttpOnly cookies (server-side)
+- Cookie flags: httpOnly=true, secure=true (prod), sameSite=lax, maxAge=3600
+- Token NEVER sent to the LLM — captured in server-side closure
+- localStorage fallback maintained for client-side Google API calls (sidebar)
+
+Rate Limiting:
+- 30 requests/minute per IP on /api/chat
+- Sliding window with auto-cleanup
+- Returns 429 with Retry-After header
+
+Firestore Rules:
+- All data scoped to users/{userId}
+- request.auth.uid == userId required for all operations
+- Default deny on all unmatched paths
+
+================================================================================
+AI AGENT BEHAVIOR
+================================================================================
+
+System Prompt Parameters:
+- Receives current date/time as temporal anchor
+- Has 3 tools: get_events, create_event, delete_event
+- Mandatory conflict check before every create_event
+- Rescheduling protocol: delete old → check new time → create new
+- Widget triggers: AI auto-appends [WIDGET: STATS/SCHEDULE/EMAIL] at end of
+  response. Markers are invisible — UI strips them and renders widgets instead.
+  The AI never explains the markers or mentions them in the text.
+- Calendar citations: [[Event Title]] → clickable buttons
+- Personality: direct, no filler, uses markdown, proactive about issues
+
+Tool Execution Flow:
+1. User sends message → /api/chat (POST)
+2. AI SDK streamText() with tools
+3. LLM decides to call tool(s) → tool.execute() runs server-side
+4. Tool makes Google API call with user's token from cookie
+5. Result streamed back to client
+6. Client detects tool completion → updates sidebar + logs to Firestore
+
+Max Steps: 5 (stopWhen: stepCountIs(5))
+Model: gpt-4o-mini
+
+================================================================================
+DATA FLOW
+================================================================================
+
+Authentication:
+1. User clicks "Sign in with Google" on landing page
+2. Firebase Auth popup → Google OAuth with calendar + gmail scopes
+3. On success: access token sent to POST /api/auth/session
+4. Server sets HttpOnly cookie "gat" with the token
+5. Token also saved to localStorage (fallback for client-side calendar fetch)
+6. User redirected to /app
+
+Chat Message:
+1. User types or clicks quick action → sendMessage()
+2. DefaultChatTransport sends to /api/chat with Authorization header
+3. Server reads token from cookie (primary) or header (fallback)
+4. streamText() processes with tools
+5. Streamed response rendered by MessageRenderer
+6. On stream end: conversation saved to Firestore, activity logged
+
+Calendar Sync:
+1. CalendarProvider fetches events on mount via CalendarService
+2. Both ChatInterface and RightSidebar consume shared context
+3. When AI creates/deletes event → refetch() called → all consumers update
+
+================================================================================
+ENVIRONMENT VARIABLES
+================================================================================
+
+# Firebase (client-side, public)
+NEXT_PUBLIC_FIREBASE_API_KEY
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+NEXT_PUBLIC_FIREBASE_PROJECT_ID
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+NEXT_PUBLIC_FIREBASE_APP_ID
+
+# OpenAI (server-side only)
+OPENAI_API_KEY
+
+================================================================================
+FIRESTORE SCHEMA
+================================================================================
+
+users/{userId}
+  ├── displayName: string              // From Google OAuth
+  ├── email: string                    // From Google OAuth
+  ├── photoURL: string | null          // Google profile photo URL
+  ├── createdAt: Timestamp             // First login only
+  ├── lastLoginAt: Timestamp           // Updated every login
+  ├── conversations/{conversationId}
+  │   ├── title: string
+  │   ├── createdAt: Timestamp
+  │   ├── updatedAt: Timestamp
+  │   ├── messageCount: number
+  │   └── messages/{messageId}
+  │       ├── role: "user" | "assistant"
+  │       ├── content: string
+  │       └── createdAt: Timestamp
+  ├── activity/{activityId}
+  │   ├── type: "calendar_fetch" | "event_created" | "event_deleted" |
+  │   │         "event_rescheduled" | "email_sent" | "email_drafted"
+  │   ├── summary: string
+  │   ├── metadata: { toolName, output, to?, subject? }
+  │   └── createdAt: Timestamp
+  └── analytics/{weekId}
+      ├── totalMeetingMinutes: number
+      ├── totalEvents: number
+      └── computedAt: Timestamp
+
+================================================================================
+DEPENDENCIES (production)
+================================================================================
+
+@ai-sdk/openai ^3.0.31    — OpenAI provider for Vercel AI SDK
+@ai-sdk/react ^3.0.99     — React hooks (useChat)
+ai ^6.0.97                 — Vercel AI SDK core (streamText, tools)
+firebase ^12.9.0           — Auth + Firestore client SDK
+next 16.1.6                — App Router, Turbopack
+react 19.2.3               — UI framework
+react-markdown ^10.1.0     — Markdown rendering
+remark-gfm ^4.0.1          — GitHub-flavored markdown (tables, lists)
+zod ^4.3.6                 — Schema validation for AI tool inputs
+lucide-react ^0.575.0      — Icon library
+date-fns ^4.1.0            — Date utilities
+radix-ui ^1.4.3            — Headless UI primitives (via shadcn)
+tailwind-merge ^3.5.0      — Tailwind class deduplication
+
+================================================================================
+END OF llm.txt
+================================================================================

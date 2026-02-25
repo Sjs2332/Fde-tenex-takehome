@@ -1,22 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-    Calendar as LucideCalendar,
-    Clock,
-    Users,
-    CheckCircle2,
-    Sparkles,
-    Bell,
-    Settings2,
-    StickyNote,
-    Zap,
-    Trophy,
-    HelpCircle,
-    ArrowRight,
-    Video,
-    MoreHorizontal
-} from "lucide-react";
+import { Calendar as LucideCalendar, HelpCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -27,142 +12,133 @@ import {
     SidebarGroupContent,
     SidebarGroupLabel,
     SidebarHeader,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+
+import { useCalendar } from "@/hooks/use-calendar";
+import { GoogleCalendarEvent } from "@/types/google/calendar";
+
+import { SchedulePanel } from "@/components/app/navigation/SchedulePanel";
+import { CreateEventModal } from "@/components/app/navigation/CreateEventModal";
+import { EventDetailModal } from "@/components/app/navigation/EventDetailModal";
 
 export function RightSidebar() {
-    const [date, setDate] = React.useState<Date | undefined>(new Date());
+    const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
+    const [viewAll, setViewAll] = React.useState(false);
+    const [isCreateOpen, setIsCreateOpen] = React.useState(false);
+    const [detailEvent, setDetailEvent] = React.useState<GoogleCalendarEvent | null>(null);
+    const [showHelp, setShowHelp] = React.useState(false);
 
-    const upcomingEvents = [
-        {
-            title: "Tenex Strategy Sync",
-            time: "10:00 AM",
-            type: "Video",
-            attendees: 4,
-            color: "bg-blue-500",
-            status: "Soon"
-        },
-        {
-            title: "Engineering Interview",
-            time: "2:00 PM",
-            type: "Meet",
-            attendees: 2,
-            color: "bg-green-500",
-        },
-        {
-            title: "Product Roadmap",
-            time: "4:30 PM",
-            type: "Office",
-            attendees: 8,
-            color: "bg-purple-500",
-        }
-    ];
+    const { events, loading, refetch } = useCalendar();
+
+    const handleDaySelect = (day: Date | undefined) => {
+        setSelectedDate(day);
+        setViewAll(false);
+    };
+
+    const handleViewAll = () => {
+        setViewAll(true);
+        setSelectedDate(undefined);
+    };
 
     return (
-        <Sidebar
-            side="right"
-            collapsible="none"
-            className="h-screen sticky top-0 border-l bg-sidebar/50 backdrop-blur-xl"
-        >
-            <SidebarHeader className="border-b h-16 flex items-center px-4">
-                <div className="flex items-center justify-end gap-2 w-full">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-xl h-10 w-10 text-muted-foreground hover:text-foreground transition-all"
-                    >
-                        <Bell className="h-5 w-5" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-xl h-10 w-10 text-muted-foreground hover:text-foreground transition-all"
-                    >
-                        <HelpCircle className="h-5 w-5" />
-                    </Button>
-                </div>
-            </SidebarHeader>
-
-            <SidebarContent className="px-3 py-6 space-y-6 scrollbar-none overflow-y-auto">
-                {/* Mini Calendar */}
-                <SidebarGroup>
-                    <SidebarGroupLabel className="px-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 mb-2">
-                        Schedule Overview
-                    </SidebarGroupLabel>
-                    <SidebarGroupContent className="flex justify-center flex-col items-center">
-                        <Calendar
-                            mode="single"
-                            selected={date}
-                            onSelect={setDate}
-                            className="rounded-xl border-none shadow-none bg-transparent scale-90 origin-top"
-                        />
-                    </SidebarGroupContent>
-                </SidebarGroup>
-
-                {/* Upcoming Events */}
-                <SidebarGroup>
-                    <div className="flex items-center justify-between px-2 mb-3">
-                        <SidebarGroupLabel className="p-0 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
-                            Upcoming
-                        </SidebarGroupLabel>
-                        <Button variant="ghost" size="sm" className="h-6 text-[9px] font-bold uppercase tracking-widest text-primary p-0 h-auto">
-                            View All
+        <>
+            <Sidebar
+                side="right"
+                collapsible="none"
+                className="h-screen sticky top-0 border-l bg-sidebar/50 backdrop-blur-xl flex flex-col"
+            >
+                {/* Header */}
+                <SidebarHeader className="border-b h-16 flex items-center px-4 shrink-0">
+                    <div className="flex items-center justify-end gap-2 w-full relative">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-xl h-10 w-10 text-muted-foreground hover:text-foreground transition-all"
+                            onClick={() => setShowHelp(!showHelp)}
+                        >
+                            <HelpCircle className="h-5 w-5" />
                         </Button>
-                    </div>
-                    <SidebarGroupContent>
-                        <div className="space-y-3">
-                            {upcomingEvents.map((event, i) => (
-                                <div key={i} className="group transition-all hover:bg-accent/40 rounded-2xl p-3 border border-transparent hover:border-border/50 cursor-pointer relative">
-                                    <div className={cn("absolute left-0 top-4 w-1 h-8 rounded-full", event.color)} />
-                                    <div className="flex flex-col gap-1.5 pl-2">
-                                        <div className="flex items-center justify-between">
-                                            <h4 className="text-xs font-bold leading-tight truncate pr-4 group-hover:text-primary transition-colors">{event.title}</h4>
-                                            {event.status && <Badge className="h-4 text-[8px] bg-primary rounded-full px-1.5">{event.status}</Badge>}
-                                        </div>
-                                        <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground">
-                                            <div className="flex items-center gap-1">
-                                                <Clock className="h-3 w-3" />
-                                                <span>{event.time}</span>
-                                            </div>
-                                            <span className="opacity-30">•</span>
-                                            <span>{event.type}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between mt-1">
-                                            <div className="flex -space-x-2">
-                                                {[1, 2, 3].map((j) => (
-                                                    <Avatar key={j} className="h-5 w-5 border-2 border-background">
-                                                        <AvatarImage src={`https://i.pravatar.cc/150?u=right${i}${j}`} />
-                                                        <AvatarFallback>U</AvatarFallback>
-                                                    </Avatar>
-                                                ))}
-                                                {event.attendees > 3 && (
-                                                    <div className="h-5 w-5 rounded-full bg-accent flex items-center justify-center text-[8px] font-bold border-2 border-background">
-                                                        +{event.attendees - 3}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
-                                        </div>
+
+                        {/* Help Popup */}
+                        {showHelp && (
+                            <div className="absolute top-full right-0 mt-2 w-72 bg-card border border-border/60 rounded-xl shadow-2xl z-50 animate-in fade-in slide-in-from-top-1 duration-150 overflow-hidden">
+                                <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">How to use Tenex</h4>
+                                    <button onClick={() => setShowHelp(false)} className="text-muted-foreground hover:text-foreground">
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                                <div className="p-4 space-y-3 text-xs text-muted-foreground">
+                                    <div className="space-y-1">
+                                        <p className="font-bold text-foreground">💬 Ask AI anything</p>
+                                        <p>Type natural language questions about your calendar, schedule meetings, or reschedule events.</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="font-bold text-foreground">⚡ Quick Actions</p>
+                                        <p>Use the chips below the input to draft emails, summarize your week, audit meetings, or reschedule.</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="font-bold text-foreground">📅 Calendar</p>
+                                        <p>Click any day on the calendar to filter events. Click &quot;View All&quot; to see everything.</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="font-bold text-foreground">🔍 Search</p>
+                                        <p>Use the search bar in the header to quickly find events by name.</p>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    </SidebarGroupContent>
-                </SidebarGroup>
+                            </div>
+                        )}
+                    </div>
+                </SidebarHeader>
 
+                <SidebarContent className="flex flex-col min-h-0 overflow-hidden">
+                    {/* Mini Calendar */}
+                    <SidebarGroup className="shrink-0 px-3 pt-4 pb-0">
+                        <SidebarGroupLabel className="px-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 mb-2">
+                            Schedule Overview
+                        </SidebarGroupLabel>
+                        <SidebarGroupContent className="flex justify-center">
+                            <Calendar
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={handleDaySelect}
+                                className="rounded-xl border-none shadow-none bg-transparent scale-90 origin-top"
+                            />
+                        </SidebarGroupContent>
+                    </SidebarGroup>
 
-            </SidebarContent>
+                    {/* Schedule Panel */}
+                    <SchedulePanel
+                        events={events}
+                        loading={loading}
+                        selectedDate={selectedDate}
+                        viewAll={viewAll}
+                        onViewAll={handleViewAll}
+                        onEventClick={setDetailEvent}
+                    />
+                </SidebarContent>
 
-            <SidebarFooter className="border-t p-4">
-                <Button className="w-full rounded-xl font-bold text-[11px] h-10 shadow-lg shadow-primary/20">
-                    <LucideCalendar className="mr-2 h-4 w-4" /> Schedule New
-                </Button>
-            </SidebarFooter>
-        </Sidebar>
+                {/* Footer */}
+                <SidebarFooter className="border-t p-4 shrink-0">
+                    <Button
+                        onClick={() => setIsCreateOpen(true)}
+                        className="w-full rounded-xl font-bold text-[11px] h-12 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                        <LucideCalendar className="mr-2 h-4 w-4" /> Schedule New
+                    </Button>
+                </SidebarFooter>
+            </Sidebar>
+
+            <CreateEventModal
+                isOpen={isCreateOpen}
+                onClose={() => setIsCreateOpen(false)}
+                onSuccess={refetch}
+            />
+            <EventDetailModal
+                event={detailEvent}
+                isOpen={!!detailEvent}
+                onClose={() => setDetailEvent(null)}
+            />
+        </>
     );
 }

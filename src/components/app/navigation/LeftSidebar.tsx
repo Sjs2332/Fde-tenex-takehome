@@ -2,19 +2,9 @@
 
 import * as React from "react";
 import {
-    Calendar,
-    MessageSquare,
-    Settings,
-    Clock,
-    LayoutDashboard,
+    Sparkles,
     LogOut,
     ChevronUp,
-    User2,
-    Plus,
-    Sparkles,
-    Zap,
-    Search,
-    History,
 } from "lucide-react";
 
 import {
@@ -43,7 +33,26 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+import { useAuth } from "@/components/providers/AuthProvider";
+import { useRouter } from "next/navigation";
+
 export function LeftSidebar() {
+    const { user, logout } = useAuth();
+    const router = useRouter();
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            router.push("/");
+        } catch (error) {
+            console.error("Logout failed:", error);
+        }
+    };
+
+    const initials = user?.displayName
+        ? user.displayName.split(" ").map(n => n[0]).join("").toUpperCase()
+        : user?.email?.substring(0, 2).toUpperCase() || "JS";
+
     const navItems = [
         { name: "AI Assistant", icon: Sparkles, url: "/app", isActive: true, badge: "AI" },
     ];
@@ -75,15 +84,12 @@ export function LeftSidebar() {
             </SidebarHeader>
 
             <SidebarContent className="px-4 py-8 space-y-8">
-
-
                 <SidebarGroup>
                     <SidebarGroupLabel className="px-2 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground/60 mb-2">
                         Workspace
                     </SidebarGroupLabel>
                     <SidebarGroupContent>
                         <SidebarMenu className="gap-1">
-
                             {navItems.map((item) => (
                                 <SidebarMenuItem key={item.name}>
                                     <SidebarMenuButton
@@ -99,9 +105,6 @@ export function LeftSidebar() {
                                             {item.badge && (
                                                 <Badge className="ml-auto bg-primary text-[10px] px-1.5 py-0 h-4 border-none shadow-sm">{item.badge}</Badge>
                                             )}
-                                            {item.isActive && (
-                                                <div className="absolute left-[-16px] w-[4px] h-6 bg-primary rounded-r-full" />
-                                            )}
                                         </a>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
@@ -109,8 +112,6 @@ export function LeftSidebar() {
                         </SidebarMenu>
                     </SidebarGroupContent>
                 </SidebarGroup>
-
-
             </SidebarContent>
 
             <SidebarFooter className="border-t p-4 mt-auto">
@@ -121,13 +122,15 @@ export function LeftSidebar() {
                                 <SidebarMenuButton size="lg" className="h-14 rounded-2xl hover:bg-accent/50 group transition-all">
                                     <div className="relative">
                                         <Avatar className="h-10 w-10 border-2 border-background shadow-md">
-                                            <AvatarImage src="https://github.com/shadcn.png" alt="Jawad Shah" />
-                                            <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground font-bold">JS</AvatarFallback>
+                                            {user?.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || "User"} />}
+                                            <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground font-bold">
+                                                {initials}
+                                            </AvatarFallback>
                                         </Avatar>
-                                        <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-green-500 shadow-sm" />
+                                        {user && <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-green-500 shadow-sm" />}
                                     </div>
                                     <div className="grid flex-1 text-left ml-3">
-                                        <span className="truncate text-sm font-bold text-foreground">Jawad Shah</span>
+                                        <span className="truncate text-sm font-bold text-foreground">{user?.displayName || "Guest User"}</span>
                                         <span className="truncate text-[11px] text-muted-foreground font-medium uppercase tracking-tight">Personal Workspace</span>
                                     </div>
                                     <ChevronUp className="ml-auto h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
@@ -139,19 +142,12 @@ export function LeftSidebar() {
                                 className="w-64 p-2 rounded-2xl shadow-2xl border-sidebar-border"
                             >
                                 <div className="px-2 py-3 border-b mb-1">
-                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest hidden">Account</p>
-                                    <p className="text-sm font-bold truncate">jawad@tenex.ai</p>
+                                    <p className="text-sm font-bold truncate">{user?.email || "Not signed in"}</p>
                                 </div>
-                                <DropdownMenuItem className="h-10 rounded-lg focus:bg-accent p-2">
-                                    <User2 className="mr-2 h-4 w-4" />
-                                    <span className="font-semibold text-sm">Profile</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="h-10 rounded-lg focus:bg-accent p-2">
-                                    <Settings className="mr-2 h-4 w-4" />
-                                    <span className="font-semibold text-sm">Settings</span>
-                                </DropdownMenuItem>
-                                <div className="h-px bg-sidebar-border my-1" />
-                                <DropdownMenuItem className="h-10 rounded-lg text-destructive focus:bg-destructive/10 focus:text-destructive p-2">
+                                <DropdownMenuItem
+                                    className="h-10 rounded-lg text-destructive focus:bg-destructive/10 focus:text-destructive p-2 cursor-pointer"
+                                    onClick={handleLogout}
+                                >
                                     <LogOut className="mr-2 h-4 w-4" />
                                     <span className="font-semibold text-sm">Log out</span>
                                 </DropdownMenuItem>
@@ -163,3 +159,4 @@ export function LeftSidebar() {
         </Sidebar>
     );
 }
+
