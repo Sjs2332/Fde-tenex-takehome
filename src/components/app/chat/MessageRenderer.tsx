@@ -15,7 +15,6 @@ interface MessageRendererProps {
     msg: any;
     events: GoogleCalendarEvent[];
     onEventClick: (event: GoogleCalendarEvent) => void;
-    onEventCreated?: () => void;
 }
 
 /**
@@ -47,17 +46,12 @@ function getToolInfo(part: any): { toolName: string; state: string; output: any 
     return null;
 }
 
-/** Checks if a tool is still loading */
-function isToolLoading(state: string): boolean {
-    return ["input-streaming", "input-available", "call", "partial-call"].includes(state);
-}
-
 /** Checks if a tool has finished */
 function isToolDone(state: string): boolean {
     return ["output-available", "result"].includes(state);
 }
 
-export function MessageRenderer({ msg, events, onEventClick, onEventCreated }: MessageRendererProps) {
+export function MessageRenderer({ msg, events, onEventClick }: MessageRendererProps) {
     const rawText = getMessageText(msg);
     const parts: any[] = msg.parts || [];
 

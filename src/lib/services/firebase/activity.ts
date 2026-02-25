@@ -21,7 +21,7 @@ export type ActivityType =
     | "email_sent"
     | "email_drafted";
 
-export interface ActivityEntry {
+interface ActivityEntry {
     id?: string;
     type: ActivityType;
     summary: string;

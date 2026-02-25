@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Sparkles, Clock, ArrowRight, Video, MapPin } from "lucide-react";
+import { Sparkles, Clock, ArrowRight, Video } from "lucide-react";
 import {
     Card,
     CardContent,

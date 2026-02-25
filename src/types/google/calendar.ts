@@ -34,8 +34,3 @@ export interface GoogleCalendarEvent {
     status?: 'confirmed' | 'tentative' | 'cancelled';
     htmlLink?: string;
 }
-
-export interface CalendarFetchResponse {
-    items: GoogleCalendarEvent[];
-    nextPageToken?: string;
-}

@@ -21,7 +21,7 @@ export const QUICK_ACTIONS: QuickAction[] = [
         icon: Mail,
         color: "hover:bg-blue-500/10 hover:text-blue-500 hover:border-blue-500/20",
         buildPrompt: () =>
-            "I need to draft an email. Ask me who it's for and what it's about.",
+            "Draft an email for me",
     },
     {
         label: "Reschedule sync",

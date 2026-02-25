@@ -1,9 +1,9 @@
-import { googleFetch } from "./google-client";
-import { GoogleCalendarEvent, CalendarFetchResponse } from "@/types/google/calendar";
+import { GoogleCalendarEvent } from "@/types/google/calendar";
 
 /**
  * Calendar Service
- * Handles all Google Calendar specific business logic.
+ * Handles all Google Calendar specific business logic by proxying 
+ * through our secure Next.js server route to protect tokens.
  */
 export const CalendarService = {
     /**
@@ -11,17 +11,12 @@ export const CalendarService = {
      * returning all events in chronological start-time order.
      */
     async getUpcomingEvents(): Promise<GoogleCalendarEvent[]> {
-        const past = new Date();
-        past.setDate(past.getDate() - 30);
-        const timeMin = past.toISOString();
+        const response = await fetch('/api/calendar');
+        if (!response.ok) {
+            throw new Error(`Failed to fetch events: ${response.statusText}`);
+        }
 
-        const future = new Date();
-        future.setDate(future.getDate() + 30);
-        const timeMax = future.toISOString();
-
-        const endpoint = `/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime`;
-        const data = await googleFetch<CalendarFetchResponse>(endpoint);
-
+        const data = await response.json();
         return data.items || [];
     },
 
@@ -29,11 +24,18 @@ export const CalendarService = {
      * Creates a new event in the primary calendar.
      */
     async createEvent(event: GoogleCalendarEvent): Promise<GoogleCalendarEvent> {
-        const endpoint = `/calendar/v3/calendars/primary/events?conferenceDataVersion=1`;
-
-        return await googleFetch<GoogleCalendarEvent>(endpoint, {
+        const response = await fetch('/api/calendar', {
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify(event),
         });
+
+        if (!response.ok) {
+            throw new Error(`Failed to create event: ${response.statusText}`);
+        }
+
+        return await response.json();
     }
 };

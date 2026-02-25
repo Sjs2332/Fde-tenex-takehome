@@ -21,16 +21,16 @@ The app is a single-page dashboard with:
 - Header: breadcrumb + event search bar with dropdown
 
 ================================================================================
-FILE TREE (58 source files)
+FILE TREE (61 source files)
 ================================================================================
 
 src/
 ├── app/
 │   ├── api/
-│   │   ├── auth/session/route.ts          # POST: store token in HttpOnly cookie
-│   │   │                                  # DELETE: clear token cookie on logout
-│   │   └── chat/route.ts                  # POST: AI chat endpoint
-│   │       - Rate limited (30 req/min/IP)
+│   │   ├── auth/session/route.ts        # GET/POST/DELETE HttpOnly cookie
+│   │   ├── calendar/route.ts            # GET/POST proxy for Calendar API (hides token)
+│   │   ├── gmail/send/route.ts          # POST proxy for Gmail API (hides token)
+│   │   └── chat/route.ts                  # Main AI agent endpoint
 │   │       - Reads token from HttpOnly cookie (primary) or Auth header (fallback)
 │   │       - Imports tools from lib/ai/tools.ts
 │   │       - Imports prompt from lib/ai/system-prompt.ts
@@ -47,17 +47,13 @@ src/
 │   └── globals.css                        # Tailwind base + theme tokens (HSL variables)
 ├── components/
 │   ├── app/chat/
-│   │   ├── ChatInterface.tsx              # Main chat UI (356 lines)
-│   │   │   - useChat() from @ai-sdk/react with DefaultChatTransport
-│   │   │   - Sends Google token via Authorization header to /api/chat
-│   │   │   - Auto-scrolls, auto-resizes textarea
+│   │   ├── ChatInterface.tsx              # Main chat UI orchestrator (260 lines)
+│   │   │   - useChat() from @ai-sdk/react (connects to /api/chat)
+│   │   │   - Syncs activeConversationId via useChatSession
 │   │   │   - Detects tool-create_event / tool-delete_event completion → refetch()
-│   │   │   - Persists conversations to Firestore via ConversationService
-│   │   │   - Logs agent actions to Firestore via ActivityService
-│   │   │   - Uses loggedToolCallsRef Set to prevent duplicate logging
-│   │   │   - Quick actions: opens ReschedulePickerModal for "Reschedule sync",
-│   │   │     sets input for others
-│   │   │   - Citation clicks open EventDetailModal
+│   │   │   - Persists conversations and logs agent actions to Firestore
+│   │   ├── ChatMessagesList.tsx           # Renders the message scroll area and TenexLogo
+│   │   ├── ChatInputForm.tsx              # Renders the input textarea, submit button, and Quick actions
 │   │   ├── MessageRenderer.tsx            # Renders a single assistant message
 │   │   │   - getToolInfo() helper: extracts tool name/state/output from both
 │   │   │     AI SDK v6 format (tool-{name}) and legacy (tool-invocation)
@@ -88,7 +84,7 @@ src/
 │   │   │   - Lists events chronologically with status indicators
 │   │   │   - done/in-progress/soon/upcoming badges
 │   │   └── quick-actions.ts              # Quick action chip definitions
-    │       - "Draft email" → asks the AI to prompt the user for recipient + topic
+│   │       - "Draft email" → sends "Draft an email for me" (AI asks who/what)
     │       - "Reschedule sync" → opens ReschedulePickerModal (no prompt)
     │       - "Summarize week" → neutral prompt (AI auto-appends STATS widget)
     │       - "Audit meetings" → neutral prompt (AI auto-appends SCHEDULE widget)
@@ -97,10 +93,10 @@ src/
 │   │   │                                 # user avatar footer with dropdown (email + logout)
 │   │   ├── RightSidebar.tsx              # Right panel: help popup, mini calendar,
 │   │   │                                 # schedule panel, "Schedule New" button
-│   │   ├── DashboardHeader.tsx           # Header: breadcrumb + search bar
-│   │   │   - Search bar: on focus shows upcoming events dropdown
-│   │   │   - Typing filters events by name
-│   │   │   - Click outside closes dropdown
+│   │   ├── DashboardHeader.tsx           # Header: breadcrumb + search bar + chat controls
+│   │   │   - Search bar: shows upcoming events dropdown on focus
+│   │   │   - "New Chat" button triggers startNewChat from useChatSession
+│   │   │   - "History" dropdown lists recent conversations; click swaps thread
 │   │   ├── SchedulePanel.tsx             # Event list for right sidebar
 │   │   │   - Filters by selected date or shows all
 │   │   │   - Loading skeleton, empty state
@@ -133,6 +129,10 @@ src/
 │   │   - Fetches via CalendarService.getUpcomingEvents()
 │   │   - Provides: events, loading, error, refetch
 │   │   - Both ChatInterface and RightSidebar share the same instance
+│   ├── use-chat-session.tsx              # ChatSessionProvider context
+│   │   - Manages activeConversationId and loads thread history from Firestore
+│   │   - Auto-loads latest thread on initial mount so refreshes persist
+│   │   - Provides: activeConversationId, conversations, startNewChat, loadConversation
 │   └── use-mobile.ts                    # useIsMobile() hook (used by sidebar.tsx)
 ├── lib/
 │   ├── ai/
@@ -141,7 +141,8 @@ src/
 │   │   │   - create_event: creates with Google Meet link + attendees
 │   │   │   - delete_event: deletes by event ID
 │   │   │   - assertToken() guard: throws if no token
-│   │   │   - googleApiFetch() helper: centralized fetch with error handling
+│   │   │   - googleApiFetch(): retry up to 2x with backoff (500ms, 1500ms)
+│   │   │     Retries on 5xx/429; fails immediately on 4xx client errors
 │   │   └── system-prompt.ts             # buildSystemPrompt(timeString)
 │   │       - Temporal anchor with current date/time
 │   │       - Tool usage protocol with conflict check mandate
@@ -150,6 +151,8 @@ src/
     │         (STATS, SCHEDULE, EMAIL — AI places at end, UI strips from text)
 │   │       - Scheduling intelligence: buffers, work hours, batch checking
 │   │       - Analytics engine: meeting hours, busiest day, "meetings as emails"
+│   │       - Email clarification: if user says "draft an email" without
+│   │         specifying recipient/topic, AI asks before drafting
 │   ├── auth/
 │   │   └── token-manager.ts             # Server-side HttpOnly cookie manager
 │   │       - Cookie: "gat", httpOnly, secure in prod, sameSite: lax, maxAge: 3600
@@ -157,11 +160,12 @@ src/
 │   ├── services/
 │   │   ├── firebase/
 │   │   │   ├── auth.ts                  # AuthService
-│   │   │   │   - loginWithGoogle(): OAuth popup → store token in cookie + localStorage
-│   │   │   │   - logout(): clear cookie + localStorage + Firebase signOut
+│   │   │   │   - loginWithGoogle(): OAuth popup → store token in secure cookie
+│   │   │   │   - logout(): clear cookie + Firebase signOut
 │   │   │   ├── conversations.ts         # ConversationService
 │   │   │   │   - saveConversation(): upserts conversation + message subcollection
 │   │   │   │   - getConversations(): latest 20 by updatedAt DESC
+│   │   │   │   - getMessages(): fetch thread messages ascending
 │   │   │   │   - deleteConversation(): deletes messages subcollection + document
 │   │   │   └── activity.ts             # ActivityService
 │   │   │       - log(userId, type, summary, metadata): append-only activity log
@@ -174,17 +178,12 @@ src/
     │   │         createdAt (first login only), lastLoginAt (every login),
     │   │         lastLoginAt (every login)
 │   │   └── google/
-│   │       ├── google-client.ts         # googleFetch<T>() with token from localStorage
-│   │       │   - Used by client-side components (EmailDraftCard, CalendarService)
 │   │       └── calendar.ts             # CalendarService
+│   │           - Proxies all calls through secure internal Next.js `/api/calendar` route
 │   │           - getUpcomingEvents(): past 30 days → future 30 days
-│   │           - createEvent(): POST with conferenceDataVersion=1
+│   │           - createEvent(): POST to proxy with conferenceDataVersion=1
 │   ├── firebase.ts                      # Firebase app init (getApps guard)
 │   │   - Exports: app, auth, db (Firestore)
-│   ├── rate-limit.ts                    # In-memory sliding-window rate limiter
-│   │   - checkRateLimit(identifier, config) → { allowed, remaining, resetInSeconds }
-│   │   - rateLimitResponse(resetInSeconds) → 429 Response with headers
-│   │   - Auto-cleanup interval (60s) prevents memory leaks
 │   ├── calendar-utils.ts               # Shared date utility functions
 │   │   - EventStatus type: done | in-progress | soon | upcoming
 │   │   - EVENT_COLORS: array of Tailwind class names
@@ -218,11 +217,6 @@ Token Security:
 - Cookie flags: httpOnly=true, secure=true (prod), sameSite=lax, maxAge=3600
 - Token NEVER sent to the LLM — captured in server-side closure
 - localStorage fallback maintained for client-side Google API calls (sidebar)
-
-Rate Limiting:
-- 30 requests/minute per IP on /api/chat
-- Sliding window with auto-cleanup
-- Returns 429 with Retry-After header
 
 Firestore Rules:
 - All data scoped to users/{userId}

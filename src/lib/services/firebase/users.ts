@@ -9,7 +9,7 @@ import { db } from "@/lib/firebase";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-export interface UserProfile {
+interface UserProfile {
     uid: string;
     displayName: string | null;
     email: string | null;

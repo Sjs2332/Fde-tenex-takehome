@@ -1,7 +1,7 @@
 import { GoogleCalendarEvent } from "@/types/google/calendar";
 import { parseISO } from "date-fns";
 
-export type EventStatus = "done" | "in-progress" | "soon" | "upcoming";
+type EventStatus = "done" | "in-progress" | "soon" | "upcoming";
 
 export const EVENT_COLORS = [
     "bg-blue-500",

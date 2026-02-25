@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Copy, Check, Send, Edit3, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { googleFetch } from "@/lib/services/google/google-client";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { ActivityService } from "@/lib/services/firebase/activity";
 
@@ -50,10 +49,18 @@ export function EmailDraftCard({ to: initialTo, subject: initialSubject, body: i
                 .replace(/\//g, '_')
                 .replace(/=+$/, '');
 
-            await googleFetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+            const res = await fetch('/api/gmail/send', {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({ raw: base64EncodedEmail })
             });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Failed to send email");
+            }
 
             setIsSent(true);
             setIsEditing(false);

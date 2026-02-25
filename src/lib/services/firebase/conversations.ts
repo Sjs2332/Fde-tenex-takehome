@@ -2,6 +2,7 @@ import {
     collection,
     doc,
     setDoc,
+    getDoc,
     getDocs,
     deleteDoc,
     query,
@@ -14,7 +15,7 @@ import { db } from "@/lib/firebase";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-export interface ConversationMessage {
+interface ConversationMessage {
     id: string;
     role: "user" | "assistant";
     content: string;
@@ -45,29 +46,24 @@ export const ConversationService = {
         userId: string,
         conversationId: string,
         title: string,
-        messages: { id: string; role: string; content: string }[]
+        messages: { id: string; role: string; content: string; createdAt?: Date | Date | any }[]
     ): Promise<void> {
         const convRef = doc(db, "users", userId, "conversations", conversationId);
+
+        const serializedMessages = messages.map(msg => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            createdAt: msg.createdAt || new Date(),
+        })).slice(-50); // Keep max 50 to fit easily into 1MB limits
 
         await setDoc(convRef, {
             title,
             updatedAt: serverTimestamp(),
             createdAt: serverTimestamp(),
             messageCount: messages.length,
+            messages: serializedMessages,
         }, { merge: true });
-
-        // Save each message as a subcollection document
-        const messagesRef = collection(convRef, "messages");
-        const batch = messages.slice(-50); // Only persist last 50 messages
-
-        for (const msg of batch) {
-            const msgRef = doc(messagesRef, msg.id);
-            await setDoc(msgRef, {
-                role: msg.role,
-                content: msg.content,
-                createdAt: serverTimestamp(),
-            }, { merge: true });
-        }
     },
 
     /**
@@ -82,6 +78,32 @@ export const ConversationService = {
             id: doc.id,
             ...doc.data(),
         })) as Conversation[];
+    },
+
+    /**
+     * Fetch messages for a specific conversation.
+     */
+    async getMessages(userId: string, conversationId: string): Promise<ConversationMessage[]> {
+        const convRef = doc(db, "users", userId, "conversations", conversationId);
+        const convSnap = await getDoc(convRef);
+
+        if (!convSnap.exists()) return [];
+        const data = convSnap.data();
+
+        // Fast path: use the exact 1-document-read format
+        if (data.messages && Array.isArray(data.messages)) {
+            return data.messages as ConversationMessage[];
+        }
+
+        // Legacy fallback path: if `messages` field doesn't exist, they're on the old subcollection format
+        const messagesRef = collection(convRef, "messages");
+        const q = query(messagesRef, orderBy("createdAt", "asc"));
+        const snapshot = await getDocs(q);
+
+        return snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+        })) as ConversationMessage[];
     },
 
     /**

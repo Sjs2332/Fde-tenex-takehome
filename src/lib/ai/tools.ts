@@ -137,23 +137,57 @@ function assertToken(token: string | null): asserts token is string {
     }
 }
 
-async function googleApiFetch<T>(url: string, token: string, options: RequestInit = {}): Promise<T> {
-    const response = await fetch(url, {
-        ...options,
-        headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            ...(options.headers || {}),
-        },
-    });
+const MAX_RETRIES = 2;
+const RETRY_DELAYS_MS = [500, 1500];
 
-    if (!response.ok) {
-        const errText = await response.text();
-        console.error(`Google API error [${response.status}]:`, errText);
-        throw new Error(`Google API returned ${response.status}. Token may have expired.`);
+async function googleApiFetch<T>(url: string, token: string, options: RequestInit = {}): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                    ...(options.headers || {}),
+                },
+            });
+
+            // Google API returns 204 No Content for deletes
+            if (response.status === 204) return {} as T;
+
+            if (response.ok) return response.json();
+
+            const errText = await response.text();
+            const status = response.status;
+
+            // Don't retry client errors (4xx) except 429 (rate limit)
+            if (status >= 400 && status < 500 && status !== 429) {
+                console.error(`Google API error [${status}]:`, errText);
+                throw new Error(`Google API returned ${status}. ${status === 401 ? "Token may have expired." : "Bad request."}`);
+            }
+
+            // Retryable: 429 (rate limit) or 5xx (server error)
+            lastError = new Error(`Google API returned ${status}`);
+            console.warn(`Google API [${status}] — retry ${attempt + 1}/${MAX_RETRIES}`);
+        } catch (err: any) {
+            lastError = err instanceof Error ? err : new Error(String(err));
+
+            // If it's a non-retryable error we threw above, rethrow immediately
+            if (lastError.message.includes("Bad request") || lastError.message.includes("expired")) {
+                throw lastError;
+            }
+
+            console.warn(`Google API fetch error — retry ${attempt + 1}/${MAX_RETRIES}:`, lastError.message);
+        }
+
+        // Wait before retrying (skip wait on last attempt)
+        if (attempt < MAX_RETRIES) {
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+        }
     }
 
-    // Google API returns 204 No Content for deletes
-    if (response.status === 204) return {} as T;
-    return response.json();
+    console.error("Google API failed after all retries:", lastError?.message);
+    throw lastError || new Error("Google API request failed after retries.");
 }

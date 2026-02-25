@@ -36,13 +36,11 @@ function EmptyState({ label }: { label: string }) {
 // ─── Day Section ──────────────────────────────────────────────────────────────
 
 function DaySection({
-    day,
     label,
     events,
     onEventClick,
     isToday,
 }: {
-    day: Date;
     label: string;
     events: GoogleCalendarEvent[];
     onEventClick: (e: GoogleCalendarEvent) => void;
@@ -192,7 +190,6 @@ export function SchedulePanel({
                             allDayGroups.map(({ day, label, events: dayEvts, isToday }) => (
                                 <DaySection
                                     key={day.toISOString()}
-                                    day={day}
                                     label={label}
                                     events={dayEvts}
                                     onEventClick={onEventClick}

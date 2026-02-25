@@ -44,7 +44,7 @@ export function EventDetailModal({ event, isOpen, onClose }: EventDetailModalPro
     const endDT = event.end?.dateTime ? parseISO(event.end.dateTime) : null;
     const meetLink = event.conferenceData?.entryPoints?.find(e => e.entryPointType === "video")?.uri;
 
-    const StatusBadge = () => {
+    const renderStatusBadge = () => {
         if (status === "done") return (
             <Badge className="bg-emerald-500 hover:bg-emerald-500 gap-1 text-xs">
                 <CheckCircle2 className="h-3 w-3" /> Done
@@ -77,7 +77,7 @@ export function EventDetailModal({ event, isOpen, onClose }: EventDetailModalPro
                                     {event.summary || "Untitled Event"}
                                 </DialogTitle>
                                 <div className="mt-2">
-                                    <StatusBadge />
+                                    {renderStatusBadge()}
                                 </div>
                             </div>
                         </div>

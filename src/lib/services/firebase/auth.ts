@@ -42,10 +42,6 @@ export const AuthService = {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ token }),
             });
-
-            // Keep localStorage as fallback for client-side Google API calls
-            // (e.g., CalendarService.getUpcomingEvents used by the sidebar)
-            localStorage.setItem("google_access_token", token);
         }
     },
 
@@ -55,9 +51,6 @@ export const AuthService = {
     async logout(auth: Auth): Promise<void> {
         // Clear server-side cookie
         await fetch("/api/auth/session", { method: "DELETE" });
-
-        // Clear client-side storage
-        localStorage.removeItem("google_access_token");
 
         await signOut(auth);
     },

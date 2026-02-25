@@ -7,6 +7,7 @@ import { DashboardHeader } from "@/components/app/navigation/DashboardHeader";
 
 import { useAuth } from "@/components/providers/AuthProvider";
 import { CalendarProvider } from "@/hooks/use-calendar";
+import { ChatSessionProvider } from "@/hooks/use-chat-session";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -35,16 +36,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
     return (
         <CalendarProvider>
-            <SidebarProvider>
-                <LeftSidebar />
-                <SidebarInset className="bg-muted/30">
-                    <DashboardHeader />
-                    <main className="flex flex-1 flex-col overflow-hidden">
-                        {children}
-                    </main>
-                </SidebarInset>
-                <RightSidebar />
-            </SidebarProvider>
+            <ChatSessionProvider>
+                <SidebarProvider>
+                    <LeftSidebar />
+                    <SidebarInset className="bg-muted/30">
+                        <DashboardHeader />
+                        <main className="flex flex-1 flex-col overflow-hidden">
+                            {children}
+                        </main>
+                    </SidebarInset>
+                    <RightSidebar />
+                </SidebarProvider>
+            </ChatSessionProvider>
         </CalendarProvider>
     );
 }

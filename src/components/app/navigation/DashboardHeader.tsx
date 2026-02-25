@@ -8,9 +8,17 @@ import {
     BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 import { Input } from "@/components/ui/input";
-import { Search, Clock, Calendar } from "lucide-react";
+import { Search, Clock, Calendar, SquarePen, History, MessageSquare } from "lucide-react";
 import { useCalendar } from "@/hooks/use-calendar";
+import { useChatSession } from "@/hooks/use-chat-session";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface DashboardHeaderProps {
     title?: string;
@@ -18,6 +26,7 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ title = "AI Assistant" }: DashboardHeaderProps) {
     const { events } = useCalendar();
+    const { conversations, activeConversationId, loadConversation, startNewChat } = useChatSession();
     const [searchQuery, setSearchQuery] = useState("");
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
@@ -117,7 +126,72 @@ export function DashboardHeader({ title = "AI Assistant" }: DashboardHeaderProps
                 </div>
             </div>
 
-            <div className="flex justify-end" />
+            <div className="flex justify-end gap-2">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            title="History"
+                            className="h-9 w-9 rounded-xl bg-background border-border/60 hover:bg-muted"
+                        >
+                            <History className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[300px] rounded-xl p-2 border-border/60 bg-card shadow-2xl">
+                        <div className="px-2 py-1.5 mb-1 flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Recent Chats</span>
+                            <span className="text-[10px] font-medium text-muted-foreground/60">{conversations.length} total</span>
+                        </div>
+                        {conversations.length === 0 ? (
+                            <div className="p-4 text-center text-sm text-muted-foreground">
+                                No chat history yet.
+                            </div>
+                        ) : (
+                            <div className="max-h-[300px] overflow-y-auto pr-1">
+                                {conversations.map((conv) => (
+                                    <DropdownMenuItem
+                                        key={conv.id}
+                                        onSelect={() => loadConversation(conv.id)}
+                                        className={cn(
+                                            "flex flex-col items-start gap-1 p-2 rounded-lg cursor-pointer mb-1",
+                                            activeConversationId === conv.id ? "bg-primary/10" : "hover:bg-muted"
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-2 w-full">
+                                            <MessageSquare className={cn(
+                                                "h-3.5 w-3.5 flex-shrink-0",
+                                                activeConversationId === conv.id ? "text-primary" : "text-muted-foreground"
+                                            )} />
+                                            <span className={cn(
+                                                "text-sm truncate font-medium",
+                                                activeConversationId === conv.id ? "text-primary" : "text-foreground"
+                                            )}>
+                                                {conv.title}
+                                            </span>
+                                        </div>
+                                        {conv.updatedAt && (
+                                            <span className="text-[10px] text-muted-foreground ml-5.5">
+                                                {conv.updatedAt.toDate?.().toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) || "Recent"}
+                                            </span>
+                                        )}
+                                    </DropdownMenuItem>
+                                ))}
+                            </div>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button
+                    variant="outline"
+                    size="icon"
+                    title="New Chat"
+                    className="h-9 w-9 rounded-xl bg-background border-border/60 hover:bg-muted"
+                    onClick={startNewChat}
+                >
+                    <SquarePen className="h-4 w-4" />
+                </Button>
+            </div>
         </header>
     );
 }

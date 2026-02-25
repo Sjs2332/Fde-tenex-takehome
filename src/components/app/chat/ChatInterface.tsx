@@ -1,37 +1,19 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowUp, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { ChatMessagesList } from "./ChatMessagesList";
+import { ChatInputForm } from "./ChatInputForm";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useCalendar } from "@/hooks/use-calendar";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
-import { MessageRenderer } from "./MessageRenderer";
+import { UIMessage } from "ai";
 import { EventDetailModal } from "../navigation/EventDetailModal";
 import { ReschedulePickerModal } from "./ReschedulePickerModal";
 import { GoogleCalendarEvent } from "@/types/google/calendar";
-import { QUICK_ACTIONS, QuickAction } from "./quick-actions";
+import { QuickAction } from "./quick-actions";
 import { ConversationService } from "@/lib/services/firebase/conversations";
 import { ActivityService, ActivityType } from "@/lib/services/firebase/activity";
-
-// ─── Tenex Logo SVG (shared between avatar instances) ─────────────────────────
-
-function TenexLogo({ className }: { className?: string }) {
-    return (
-        <svg width="24" height="24" viewBox="0 0 60 43" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-            <rect y="0.000183105" width="60" height="42.6168" fill="#FFE501" rx="4" />
-            <rect x="16.3604" y="7.48938" width="27.3999" height="8.27911" transform="rotate(90 16.3604 7.48938)" fill="black" />
-            <path d="M51.9209 16.5607L51.9209 7.71429L42.788 7.71429L42.788 16.5607L51.9209 16.5607Z" fill="black" />
-            <path d="M42.79 25.4065L42.79 16.5601L33.6572 16.5601L33.6572 25.4065L42.79 25.4065Z" fill="black" />
-            <path d="M51.9209 34.2547L51.9209 25.4083L42.788 25.4083L42.788 34.2547L51.9209 34.2547Z" fill="black" />
-            <path d="M33.6562 16.5607L33.6562 7.71429L24.5234 7.71429L24.5234 16.5607L33.6562 16.5607Z" fill="black" />
-            <path d="M33.6562 34.2546L33.6562 25.4082L24.5234 25.4082L24.5234 34.2546L33.6562 34.2546Z" fill="black" />
-        </svg>
-    );
-}
+import { useChatSession } from "@/hooks/use-chat-session";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -45,50 +27,72 @@ export function ChatInterface() {
         : user?.email?.substring(0, 2).toUpperCase() || "U";
 
     const [input, setInput] = useState("");
-    const [firingAction, setFiringAction] = useState<string | null>(null);
     const [selectedEvent, setSelectedEvent] = useState<GoogleCalendarEvent | null>(null);
     const [reschedulePickerOpen, setReschedulePickerOpen] = useState(false);
-    const conversationIdRef = useRef(`conv-${Date.now()}`);
-    const loggedToolCallsRef = useRef<Set<string>>(new Set());;
-
-    // Transport sends the Google access token as a header so the server-side
-    // tool can call the Google Calendar API on behalf of the user.
-    const transportRef = useRef(
-        new DefaultChatTransport({
-            api: "/api/chat",
-            prepareSendMessagesRequest: ({ messages: msgs, body }) => {
-                const token = typeof window !== "undefined"
-                    ? localStorage.getItem("google_access_token")
-                    : null;
-                return {
-                    body: { ...(body ?? {}), messages: msgs },
-                    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-                };
-            },
-        })
-    );
+    const { activeConversationId, refreshHistory, conversations, loadingHistory } = useChatSession();
+    const loggedToolCallsRef = useRef<Set<string>>(new Set());
 
     const { messages, sendMessage, setMessages, status } = useChat({
-        transport: transportRef.current,
+        id: activeConversationId,
     });
 
     const isStreaming = status === "streaming" || status === "submitted";
 
+    // ─── Fetch Conversation History ───────────────────────────────────────────
+    useEffect(() => {
+        if (!user?.uid || !activeConversationId) return;
+
+        let active = true;
+
+        const loadMessages = async () => {
+            try {
+                const msgs = await ConversationService.getMessages(user.uid, activeConversationId);
+                if (!active) return;
+
+                if (msgs.length > 0) {
+                    // Convert Firestore format to AI SDK Message format
+                    const formattedMsgs = msgs.map((m: any) => ({
+                        id: m.id,
+                        role: m.role,
+                        content: m.content,
+                        createdAt: m.createdAt?.toDate ? m.createdAt.toDate() : m.createdAt,
+                        parts: [{ type: "text", text: m.content }]
+                    }));
+                    setMessages(formattedMsgs as UIMessage[]);
+                }
+            } catch (err) {
+                console.error("Failed to load conversation messages:", err);
+            }
+        };
+
+        loadMessages();
+
+        return () => { active = false; };
+    }, [activeConversationId, user?.uid, setMessages]);
+
     // ─── Initial Greeting ─────────────────────────────────────────────────────
     useEffect(() => {
-        if (messages.length === 0) {
+        // Wait until history is fully loaded so we don't accidentally overwrite an old thread
+        if (loadingHistory) return;
+
+        // Check if the current ID is brand new (not in the list of past conversations)
+        const isNewChat = !conversations.some(c => c.id === activeConversationId);
+
+        // Only show greeting if there are no messages and it genuinely is a new conversation
+        if (messages.length === 0 && isNewChat) {
             const hour = new Date().getHours();
             const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
             setMessages([{
                 id: "welcome",
                 role: "assistant",
+                content: `${greeting}, ${user?.displayName?.split(" ")[0] || "there"}. I'm connected to your calendar and ready. Use the quick actions below or ask me anything.`,
                 parts: [{
                     type: "text",
                     text: `${greeting}, ${user?.displayName?.split(" ")[0] || "there"}. I'm connected to your calendar and ready. Use the quick actions below or ask me anything.`,
                 }],
-            }]);
+            } as UIMessage]);
         }
-    }, [messages.length, setMessages, user]);
+    }, [messages.length, activeConversationId, conversations, loadingHistory, setMessages, user]);
 
     // ─── Auto-scroll to bottom on new messages ────────────────────────────────
     useEffect(() => {
@@ -117,21 +121,40 @@ export function ChatInterface() {
     }, [isStreaming, messages, refetch]);
 
     // ─── Persist conversation to Firestore ──────────────────────────────────
+    const lastPersistedHashRef = useRef<string>("");
+
     useEffect(() => {
         if (isStreaming || !user?.uid || messages.length < 2) return;
+
+        // Skip saving if the only message is the welcome greeting
+        if (messages.length === 1 && messages[0].id === "welcome") return;
+
         const serialized = messages.map((msg: any) => ({
             id: msg.id,
             role: msg.role,
+            createdAt: msg.createdAt,
             content: msg.parts
                 ?.filter((p: any) => p.type === "text")
                 .map((p: any) => p.text)
-                .join("") || "",
+                .join("") || msg.content || "", // Fallback to raw content if no parts
         }));
+
+        const hash = JSON.stringify(serialized.map(s => ({ id: s.id, content: s.content })));
+        if (hash === lastPersistedHashRef.current) return;
+        lastPersistedHashRef.current = hash;
+
+        // Use the first user message as the title
         const title = serialized.find((m: any) => m.role === "user")?.content?.slice(0, 60) || "Chat";
+
         ConversationService.saveConversation(
-            user.uid, conversationIdRef.current, title, serialized
-        ).catch((err) => console.error("Failed to persist conversation:", err));
-    }, [isStreaming, messages, user?.uid]);
+            user.uid, activeConversationId, title, serialized
+        )
+            .then(() => {
+                // Refresh the sidebar history so the user sees their new chat name immediately
+                refreshHistory();
+            })
+            .catch((err) => console.error("Failed to persist conversation:", err));
+    }, [isStreaming, messages, user?.uid, activeConversationId, refreshHistory]);
 
     // ─── Log agent actions to Firestore ──────────────────────────────────────
     useEffect(() => {
@@ -226,168 +249,28 @@ export function ChatInterface() {
         sendMessage({ text: prompt });
     };
 
-    const getMessageText = (msg: any): string => {
-        if (msg.parts) {
-            return msg.parts
-                .filter((part: any) => part.type === "text")
-                .map((part: any) => part.text)
-                .join("");
-        }
-        return msg.content || "";
-    };
-
     // ─── Render ───────────────────────────────────────────────────────────────
     return (
         <div className="flex flex-col h-full w-full">
+            <ChatMessagesList
+                messages={messages}
+                isStreaming={isStreaming}
+                userInitials={initials}
+                userPhotoUrl={user?.photoURL || undefined}
+                events={events}
+                onEventClick={setSelectedEvent}
+                messagesEndRef={messagesEndRef}
+            />
 
-            {/* Messages scrollable area */}
-            <div className="flex-1 overflow-y-auto overscroll-none px-6 pt-8 scrollbar-none">
-                <div className="max-w-3xl mx-auto w-full space-y-8 pb-6">
-                    {messages.map((msg) => (
-                        <div
-                            key={msg.id}
-                            className={cn(
-                                "flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-500",
-                                msg.role === "user" ? "items-end" : "items-start"
-                            )}
-                        >
-                            <div className={cn(
-                                "flex gap-4 max-w-[90%]",
-                                msg.role === "user" ? "flex-row-reverse" : "flex-row"
-                            )}>
-                                {/* Avatar */}
-                                <Avatar className={cn(
-                                    "h-9 w-9 border shadow-sm shrink-0 items-center justify-center overflow-hidden",
-                                    msg.role === "assistant" ? "bg-[#FFE501] border-primary/20" : "border-background"
-                                )}>
-                                    {msg.role === "assistant" ? (
-                                        <TenexLogo className="w-6 h-auto" />
-                                    ) : (
-                                        <>
-                                            <AvatarImage src={user?.photoURL || ""} />
-                                            <AvatarFallback className="bg-accent font-bold">{initials}</AvatarFallback>
-                                        </>
-                                    )}
-                                </Avatar>
-
-                                {/* Message bubble */}
-                                <div className="space-y-2 max-w-full overflow-hidden">
-                                    <div className={cn(
-                                        "px-4 py-3 rounded-2xl text-sm font-medium shadow-sm leading-relaxed",
-                                        msg.role === "user"
-                                            ? "bg-primary text-primary-foreground rounded-tr-none"
-                                            : "bg-background border rounded-tl-none text-foreground break-words max-w-full"
-                                    )}>
-                                        {msg.role === "assistant" ? (
-                                            <MessageRenderer
-                                                msg={msg}
-                                                events={events}
-                                                onEventClick={setSelectedEvent}
-                                                onEventCreated={refetch}
-                                            />
-                                        ) : (
-                                            getMessageText(msg)
-                                        )}
-                                    </div>
-                                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider px-1 opacity-60">
-                                        Just now
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-
-                    {/* Typing indicator */}
-                    {isStreaming && (
-                        <div className="flex items-start gap-4 animate-in fade-in duration-300">
-                            <Avatar className="h-9 w-9 border shadow-sm shrink-0 bg-[#FFE501] border-primary/20 items-center justify-center overflow-hidden">
-                                <TenexLogo className="w-6 h-auto" />
-                            </Avatar>
-                            <div className="bg-background border rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
-                                <div className="flex gap-1 items-center h-4">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:0ms]" />
-                                    <span className="h-1.5 w-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:150ms]" />
-                                    <span className="h-1.5 w-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:300ms]" />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div ref={messagesEndRef} />
-                </div>
-            </div>
-
-            {/* Input bar — pinned to bottom */}
             <div className="shrink-0 px-4 pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
                 <div className="max-w-3xl mx-auto w-full">
-                    <form
+                    <ChatInputForm
+                        input={input}
+                        isStreaming={isStreaming}
+                        onInputChange={handleInputChange}
                         onSubmit={handleSubmit}
-                        className="w-full bg-background border border-border/60 rounded-2xl shadow-xl p-2 flex flex-col gap-1 transition-all focus-within:border-primary/30 focus-within:shadow-2xl focus-within:shadow-primary/5"
-                    >
-                        <div className="flex items-center gap-2 px-3">
-                            <textarea
-                                id="chat-input"
-                                value={input}
-                                onChange={handleInputChange}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" && !e.shiftKey) {
-                                        e.preventDefault();
-                                        handleSubmit(e as any);
-                                    }
-                                }}
-                                placeholder="Ask Tenex Intelligence anything..."
-                                className="flex-1 border-none shadow-none focus-visible:outline-none bg-transparent font-medium min-h-[44px] max-h-[200px] resize-none py-3 px-0 m-0"
-                                disabled={isStreaming}
-                                rows={1}
-                            />
-                            <div className="flex h-11 items-center mb-0.5">
-                                <Button
-                                    type="submit"
-                                    disabled={!input?.trim() || isStreaming}
-                                    className="h-9 w-9 p-0 rounded-xl bg-primary shadow-md shadow-primary/20 hover:scale-105 transition-all disabled:opacity-30 disabled:scale-100 shrink-0"
-                                >
-                                    {isStreaming ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <ArrowUp className="h-4 w-4" />
-                                    )}
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Quick Action Chips */}
-                        <div className="flex items-center justify-between px-2 pb-0.5">
-                            <div className="flex gap-1.5 overflow-x-auto scrollbar-none py-1">
-                                {QUICK_ACTIONS.map((action) => {
-                                    const Icon = action.icon;
-                                    const isFiring = firingAction === action.label;
-                                    return (
-                                        <button
-                                            key={action.label}
-                                            type="button"
-                                            disabled={isStreaming}
-                                            onClick={() => handleQuickAction(action)}
-                                            className={cn(
-                                                "flex items-center gap-1.5 text-[10px] whitespace-nowrap px-2.5 py-1.5 rounded-full transition-all font-bold text-muted-foreground border border-transparent",
-                                                "bg-accent/50 disabled:opacity-40 disabled:cursor-not-allowed",
-                                                !isStreaming && action.color
-                                            )}
-                                        >
-                                            {isFiring ? (
-                                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                                            ) : (
-                                                <Icon className="h-2.5 w-2.5" />
-                                            )}
-                                            {action.label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <p className="hidden sm:block text-[9px] text-muted-foreground font-bold tracking-widest uppercase opacity-40 shrink-0 pl-2">
-                                Tenex AI v1.0
-                            </p>
-                        </div>
-                    </form>
+                        onQuickAction={handleQuickAction}
+                    />
                 </div>
             </div>
 

@@ -14,7 +14,7 @@ An AI-powered Chief of Staff that manages your Google Calendar with real-time sc
 - **Calendar Citations** — Event names in AI responses become clickable buttons that open event details
 - **User Profiles** — Google OAuth data (name, email, photo) persisted to Firestore on every login
 - **Activity Logging** — Every agent action (creates, deletes, fetches, emails) persisted to Firestore
-- **Conversation History** — Chat sessions auto-saved to Firestore with user-scoped access
+- **Conversation History** — Seamless persistence: threads auto-save to Firestore, persist across page reloads, and can be browsed/resumed via the Header's History dropdown
 - **Event Search** — Header search bar shows and filters upcoming events in real-time
 - **Quick Actions** — One-click chips: Draft Email, Reschedule (with meeting picker), Summarize Week, Audit Meetings
 
@@ -44,50 +44,18 @@ src/
 │   ├── layout.tsx                     # Root layout, fonts, AuthProvider
 │   └── page.tsx                       # Landing page
 ├── components/
-│   ├── app/chat/
-│   │   ├── ChatInterface.tsx          # Main chat UI + persistence
-│   │   ├── MessageRenderer.tsx        # Markdown + citations + widgets
-│   │   ├── ToolStatus.tsx             # Tool loading/success indicators
-│   │   ├── EventCreatedCard.tsx       # Event confirmation card
-│   │   ├── EmailDraftCard.tsx         # Editable email with Gmail send
-│   │   ├── ReschedulePickerModal.tsx  # Meeting picker for rescheduling
-│   │   ├── StatsGrid.tsx             # Weekly analytics widget
-│   │   ├── ScheduleCard.tsx          # Schedule timeline widget
-│   │   └── quick-actions.ts          # Quick action definitions
-│   ├── app/navigation/
-│   │   ├── LeftSidebar.tsx           # Nav + user menu
-│   │   ├── RightSidebar.tsx          # Calendar + schedule + help
-│   │   ├── DashboardHeader.tsx       # Search bar with event dropdown
-│   │   ├── SchedulePanel.tsx         # Event timeline list
-│   │   ├── EventCard.tsx             # Single event display
-│   │   ├── EventDetailModal.tsx      # Event detail overlay
-│   │   └── CreateEventModal.tsx      # Manual event creation form
-│   ├── landing_page/                 # Public marketing page
-│   ├── providers/AuthProvider.tsx    # Firebase auth context
-│   └── ui/                          # shadcn components
-├── hooks/
-│   ├── use-calendar.tsx             # Shared CalendarProvider context
-│   └── use-mobile.ts               # Mobile detection hook
+│   ├── app/
+│   │   ├── chat/                  # Modular chat system (Input, Messages, Actions)
+│   │   └── navigation/            # Headers, Sidebars, Modals 
+│   ├── providers/                 # Cross-cutting React Context (Auth)
+│   └── ui/                        # Isolated shadcn primitive components
+├── hooks/                         # Typed data management hooks (Calendar, Chat History)
 ├── lib/
-│   ├── ai/
-│   │   ├── tools.ts                 # Calendar tool factory (get/create/delete)
-│   │   └── system-prompt.ts         # AI system prompt
-│   ├── auth/
-│   │   └── token-manager.ts         # HttpOnly cookie token manager
-│   ├── services/
-│   │   ├── firebase/
-│   │   │   ├── auth.ts              # Google OAuth service
-│   │   │   ├── users.ts             # User profile CRUD (auto-populated on login)
-│   │   │   ├── conversations.ts     # Firestore conversation CRUD
-│   │   │   └── activity.ts          # Firestore activity logging
-│   │   └── google/
-│   │       ├── google-client.ts     # Centralized Google API fetch
-│   │       └── calendar.ts          # Calendar service
-│   ├── firebase.ts                  # Firebase app initialization
-│   ├── rate-limit.ts                # Sliding-window rate limiter
-│   ├── calendar-utils.ts            # Date/time utility functions
-│   └── utils.ts                     # cn() helper
-└── types/google/calendar.ts         # TypeScript interfaces
+│   ├── ai/                        # Server-side AI System Prompt & Tool Executions
+│   ├── auth/                      # Server-side token extraction 
+│   ├── services/                  # Firebase Firestore typed CRUD 
+│   └── utils.ts
+└── types/                         # Global Typescript interfaces
 ```
 
 ## Security
@@ -101,18 +69,17 @@ src/
 | **HSTS** | Strict-Transport-Security with 2-year max-age, including subdomains |
 | **XSS Prevention** | X-XSS-Protection, X-Content-Type-Options: nosniff |
 | **Clickjacking Protection** | X-Frame-Options: SAMEORIGIN, frame-ancestors: self |
-| **Rate Limiting** | 30 req/min per IP on `/api/chat` with proper 429 responses and Retry-After headers |
 | **Input Validation** | Request body validation in API routes; typed error responses |
 | **Firestore Security Rules** | User-scoped access only (`request.auth.uid == userId`); deny-all default |
 | **Token Isolation** | Google tokens never sent to the LLM; captured in server-side closure |
+| **API Retry Logic** | Google API calls retry up to 2x with exponential backoff (500ms, 1500ms) on 5xx/429 errors |
+| **Server-Side Proxy** | All Google API calls (Calendar, Gmail) proxy through Next.js routes; tokens never expose to client |
 | **Referrer Policy** | strict-origin-when-cross-origin |
 | **Permissions Policy** | Camera, microphone, geolocation disabled |
 
 ### Known Limitations
 
 - **Token refresh**: Google access tokens expire after 1 hour. Currently requires re-login. Production enhancement: implement server-side OAuth refresh token flow.
-- **Rate limiter scope**: Process-local (in-memory). In serverless deployments, use Upstash Redis for distributed rate limiting.
-- **Client-side calendar fetch**: The sidebar's `CalendarService` still uses localStorage token for client-side Google API calls. Server-side proxy recommended for full lockdown.
 
 ## Getting Started
 

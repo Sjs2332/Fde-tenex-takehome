@@ -1,6 +1,5 @@
 import { openai } from "@ai-sdk/openai";
 import { streamText, convertToModelMessages, stepCountIs } from "ai";
-import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { createCalendarTools } from "@/lib/ai/tools";
 import { getServerToken } from "@/lib/auth/token-manager";
@@ -9,17 +8,6 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
     try {
-        // ── Rate limiting ──────────────────────────────────────────────────────
-        const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
-        const { allowed, resetInSeconds } = checkRateLimit(ip, {
-            maxRequests: 30,
-            windowSeconds: 60,
-        });
-
-        if (!allowed) {
-            return rateLimitResponse(resetInSeconds);
-        }
-
         // ── Validate environment ───────────────────────────────────────────────
         if (!process.env.OPENAI_API_KEY) {
             return new Response(
@@ -46,8 +34,9 @@ export async function POST(req: Request) {
         const token = cookieToken || headerToken;
 
         const currentTimeString = new Date().toLocaleString("en-US", {
+            timeZone: "America/New_York",
             weekday: "long", year: "numeric", month: "long",
-            day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short",
+            day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short"
         });
 
         // ── Stream response ────────────────────────────────────────────────────
