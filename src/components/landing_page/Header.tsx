@@ -7,8 +7,8 @@ export function Header() {
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div className="grid grid-cols-2 md:grid-cols-3 h-16 items-center">
-                    {/* Logo Section */}
+                <div className="flex h-16 items-center justify-between">
+                    {/* Logo */}
                     <div className="flex items-center">
                         <Link href="/" className="flex items-center gap-2 group">
                             <svg width="60" height="43" viewBox="0 0 60 43" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -23,12 +23,13 @@ export function Header() {
                         </Link>
                     </div>
 
-                    {/* Navigation Section (Centered) */}
-                    <nav className="hidden md:flex items-center justify-center gap-10">
-                    </nav>
-
-                    {/* CTA Section (Right Aligned) */}
-                    <div className="flex items-center justify-end">
+                    {/* CTA Buttons (Right Aligned) */}
+                    <div className="flex items-center gap-3">
+                        <Button asChild variant="outline" size="sm" className="rounded-full px-5 font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]">
+                            <Link href="/docs">
+                                Docs
+                            </Link>
+                        </Button>
                         <Button asChild size="sm" className="rounded-full px-6 font-semibold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]">
                             <a href="https://github.com/Sjs2332/Fde-tenex-takehome" target="_blank" rel="noopener noreferrer">
                                 View Source

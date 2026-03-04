@@ -110,6 +110,11 @@ src/
 │   │   └── CreateEventModal.tsx          # Manual event creation form
 │   │       - Title, date, start/end time, all-day toggle
 │   │       - Creates via CalendarService.createEvent()
+│   ├── docs/
+│   │   ├── data/index.ts                 # Feature/API/Security arrays optimized for interviews
+│   │   ├── sections/                     # Hero, Features, Components, Architecture, API, Security
+│   │   ├── shells/                       # Isolated React component replicas (interactive but no API calls)
+│   │   └── ui/                           # Badge, SectionHeading primitives
 │   ├── landing_page/
 │   │   ├── Header.tsx                    # Landing nav: logo + "Sign in with Google"
 │   │   ├── Hero.tsx                      # Hero section with CTA

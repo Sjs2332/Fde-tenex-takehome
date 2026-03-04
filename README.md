@@ -4,6 +4,9 @@ An AI-powered Chief of Staff that manages your Google Calendar through natural l
 
 **[Live Demo](https://fde-tenex-takehome.vercel.app/)** · **[Source Code](https://github.com/Sjs2332/Fde-tenex-takehome)**
 
+> **FDE Take-Home Submission: Architecture Walkthrough**
+> This project includes a comprehensive documentation page at `/docs` detailing every design decision, component architecture, security layer, and API surface — complete with interactive UI component previews.
+
 ![Platform Screenshot](./screenshot-of-platform.png)
 
 ---
@@ -58,6 +61,11 @@ src/
 │   │   │                              # StatsGrid, ScheduleCard, ReschedulePickerModal
 │   │   └── navigation/               # LeftSidebar, RightSidebar, DashboardHeader,
 │   │                                  # EventDetailModal, CreateEventModal, EventCard
+│   ├── docs/                          # Documentation page components
+│   │   ├── data/                      # Content data arrays
+│   │   ├── sections/                  # Page sections (Features, Security, etc.)
+│   │   ├── shells/                    # Interactive component replicas
+│   │   └── ui/                        # Reusable doc primitives
 │   ├── providers/                     # AuthProvider (React Context)
 │   └── ui/                           # shadcn primitive components
 ├── hooks/
