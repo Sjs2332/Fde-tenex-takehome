@@ -179,9 +179,7 @@ export function ShellChatInterface() {
     const [input, setInput] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+    // Auto-scroll logic removed to prevent jumping on docs page load.
 
     const handleSend = () => {
         if (!input.trim()) return;
